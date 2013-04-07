@@ -2,11 +2,6 @@ package core
 
 import "io"
 
-type StateVar interface {
-	Copy() StateVar
-	Equals(StateVar) bool
-}
-
 type State interface {
 	Mutate(id EntId, value interface{})
 	Clone() State
@@ -18,7 +13,7 @@ type StateMap map[string]State
 type TransFunc func(Tick, StateMap, MutFuncs)
 
 type MutFuncs struct {
-	Mutate  func(tp string, id EntId, value StateVar)
+	Mutate  func(tp string, id EntId, value interface{})
 	Destroy func(id EntId)
 	NewId   func() EntId
 }
@@ -52,7 +47,7 @@ func NewSim(idGen *IdGen) *Sim {
 			sim.idGen.Free(id)
 		}
 	}
-	sim.mut.Mutate = func(tp string, id EntId, value StateVar) {
+	sim.mut.Mutate = func(tp string, id EntId, value interface{}) {
 		sim.mutBufs[tp].Write(Mutation{id, value})
 	}
 	sim.mut.NewId = func() EntId {
@@ -68,7 +63,7 @@ func (sim *Sim) Time() Tick {
 	return sim.time
 }
 
-func (sim *Sim) Mutate(tp string, id EntId, value StateVar) {
+func (sim *Sim) Mutate(tp string, id EntId, value interface{}) {
 	sim.mut.Mutate(tp, id, value)
 }
 

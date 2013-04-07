@@ -18,11 +18,11 @@ type CmdSrc interface {
 
 type Input struct{}
 
-func (u UserCmd) Copy() StateVar {
+func (u UserCmd) Copy() interface{} {
 	return u
 }
 
-func (u UserCmd) Equals(v StateVar) bool {
+func (u UserCmd) Equals(v interface{}) bool {
 	u2, ok := v.(UserCmd)
 	if !ok {
 		return ok

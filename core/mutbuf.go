@@ -5,7 +5,7 @@ import "runtime"
 
 type Mutation struct {
 	Id    EntId
-	Value StateVar
+	Value interface{}
 }
 
 const bufSize uint64 = 1 << 4

@@ -6,7 +6,6 @@ import (
 	"github.com/dane-unltd/engine/core"
 	"github.com/dane-unltd/linalg/matrix"
 	"io"
-	"log"
 )
 
 type VecMap map[core.EntId]matrix.VecD
@@ -51,7 +50,6 @@ func (v VecMap) SerDiff(buf io.Writer, newEnts []core.EntId, newSt core.State) {
 		}
 	}
 	buf.Write(bitMask)
-	log.Println(bitMask)
 	buf.Write(bufTemp.Bytes())
 }
 

@@ -6,6 +6,11 @@ import (
 	"io"
 )
 
+type StateVar interface {
+	Copy() interface{}
+	Equals(interface{}) bool
+}
+
 type IdMap map[EntId]StateVar
 
 func NewIdMap() IdMap {
@@ -18,7 +23,7 @@ func (v IdMap) Mutate(id EntId, value interface{}) {
 		delete(v, id)
 		return
 	}
-	v[id] = value.(StateVar).Copy()
+	v[id] = value.(StateVar).Copy().(StateVar)
 }
 
 func (v IdMap) Val(id EntId) StateVar {
@@ -32,7 +37,7 @@ func (v IdMap) Val(id EntId) StateVar {
 func (v IdMap) Clone() State {
 	vNew := NewIdMap()
 	for id := range v {
-		vNew[id] = v[id].Copy()
+		vNew[id] = v[id].Copy().(StateVar)
 	}
 	return vNew
 }
@@ -50,9 +55,12 @@ func (v IdMap) SerDiff(buf io.Writer, newEnts []EntId, newSt State) {
 		byIx := i / 8
 		bitIx := uint(i % 8)
 		_, ok := v[id]
-		if !(ok && v[id].Equals(vNew[id])) {
-			bitMask[byIx] |= 1 << bitIx
-			binary.Write(bufTemp, binary.LittleEndian, vNew[id])
+		_, ok2 := vNew[id]
+		if ok2 {
+			if !(ok && v[id].Equals(vNew[id])) {
+				bitMask[byIx] |= 1 << bitIx
+				binary.Write(bufTemp, binary.LittleEndian, vNew[id])
+			}
 		}
 	}
 	buf.Write(bitMask)
