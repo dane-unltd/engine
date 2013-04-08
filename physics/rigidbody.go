@@ -11,127 +11,141 @@ type RigidBody struct {
 	Pos, Vel VecD
 	Rot      *MatD
 	MassInv  float64
-	Points   *MatD
 
 	LinOpt func(c VecD) VecD
 }
 
 type Contact struct {
-	Normal VecD
-	Dist   float64
-	A, B   *RigidBody
+	Normal           VecD
+	Dist             float64
+	A, B             *RigidBody
+	PointsA, PointsB *MatD
 }
 
-func CreateContact(A, B *RigidBody) *Contact {
-	/*	gradA := ZeroVec(len(A.Pos))
-		gradB := ZeroVec(len(B.Pos))
-		gradA.Sub(B.Pos, A.Pos)
-		gradB.Sub(A.Pos, B.Pos)
+func (c *Contact) Update() *Contact {
+	fmt.Println("creating contact")
+	v := ZeroVec(len(c.A.Pos))
+	vNeg := ZeroVec(len(c.A.Pos))
+	v.Sub(c.A.Pos, c.B.Pos)
+	vNeg.Neg(v)
 
-		pA := A.Rot.ApplyTo(A.LinOpt(A.Rot.ApplyTo(gradA)))
-		pA.Add(pA, A.Pos)
-		pB := B.Rot.ApplyTo(B.LinOpt(B.Rot.ApplyTo(gradB)))
-		pB.Add(pB, B.Pos)
-
-		pointsA := FromArrayD([]float64(pA), false, len(pA), 1)
-		pointsB := FromArrayD([]float64(pB), false, len(pB), 1)
-
-		alphaA := VecD{1}
-		alphaB := VecD{1}
-
-		tempA := ZeroVec(len(pA))
-		tempB := ZeroVec(len(pB))
-
-		for {
-			gradA.Sub(pB, pA)
-			gradB.Sub(pA, pB)
-
-			pANew := A.Rot.ApplyTo(A.LinOpt(A.Rot.ApplyTo(gradA)))
-			pANew.Add(pANew, A.Pos)
-			pBNew := B.Rot.ApplyTo(B.LinOpt(B.Rot.ApplyTo(gradB)))
-			pBNew.Add(pBNew, B.Pos)
-
-			dA := gradA.Dot(tempB.Sub(pANew, pA))
-			dB := gradB.Dot(tempA.Sub(pBNew, pB))
-
-			if dA+dB < 0.03 {
-				break
-			}
-
-			if dA > 0.01 {
-				pointsA.AddCol(pANew)
-				alphaA = append(alphaA, 1)
-			}
-			if dB > 0.01 {
-				pointsB.AddCol(pBNew)
-				alphaB = append(alphaB, 1)
-			}
-
-			pA, pB = closestPoint(pointsA, pointsB, alphaA, alphaB)
-		}*/
-
-	_, nA := A.Points.Size()
-	_, nB := B.Points.Size()
-
-	pointsA := A.Points.Copy()
-	pointsB := B.Points.Copy()
-
-	for i := 0; i < nA; i++ {
-		pointsA.Col(i).Add(pointsA.Col(i), A.Pos)
-	}
-	for i := 0; i < nB; i++ {
-		pointsB.Col(i).Add(pointsB.Col(i), B.Pos)
+	if c.PointsA == nil {
+		pA := c.A.LinOpt(c.A.Rot.ApplyTo(vNeg))
+		pB := c.B.LinOpt(c.B.Rot.ApplyTo(v))
+		c.PointsA = FromArrayD([]float64(pA), false, len(pA), 1)
+		c.PointsB = FromArrayD([]float64(pB), false, len(pB), 1)
 	}
 
-	alphaA := OnesVec(nA)
-	alphaB := OnesVec(nB)
+	m, n := c.PointsA.Size()
 
-	pA, pB := closestPoint(pointsA, pointsB, alphaA, alphaB)
-	gradA := ZeroVec(3).Sub(pB, pA)
+	Y := Zeros(m, n)
+	y := ZeroVec(m)
 
-	c := &Contact{}
-	c.Dist = gradA.Norm2()
-	c.A = A
-	c.B = B
+	for i := 0; i < n; i++ {
+		pA := c.A.Rot.ApplyTo(c.PointsA.Col(i))
+		pB := c.B.Rot.ApplyTo(c.PointsB.Col(i))
+		y.Add(pA, c.A.Pos)
+		y.Sub(y, pB)
+		y.Sub(y, c.B.Pos)
+		Y.SetCol(i, y)
+	}
 
-	/*	fmt.Println("pA,pB", pA, pB)
-		fmt.Println("shares", alphaA, alphaB)
-		fmt.Println("points", pointsA, pointsB)
-		fmt.Println("grad", gradA)
-		fmt.Println("posA", A.Pos)
-		fmt.Println("posB", B.Pos)
-		fmt.Println("dist", c.Dist)*/
+	for {
+		v = MinPoly(Y)
 
-	if c.Dist > 0.01 {
-		c.Normal = gradA.Normalize(gradA)
-	} else {
-		shares := append(alphaA, alphaB...)
-		C := ConcatD(A.Points, B.Points)
-		mean := C.ApplyTo(shares)
-		_, nC := C.Size()
-		for i := 0; i < nC; i++ {
-			C.Col(i).Sub(C.Col(i), mean)
+		vNeg.Neg(v)
+
+		pA := c.A.LinOpt(c.A.Rot.ApplyTo(vNeg))
+		pB := c.B.LinOpt(c.B.Rot.ApplyTo(v))
+
+		pArot := c.A.Rot.ApplyTo(pA)
+		pBrot := c.B.Rot.ApplyTo(pB)
+		y.Add(pArot, c.A.Pos)
+		y.Sub(y, pBrot)
+		y.Sub(y, c.B.Pos)
+
+		if v.Norm2Sq()+vNeg.Dot(y) < 1e-3 {
+			break
 		}
-		//C = MulD(C, Diag(shares))
 
-		Ct := C.Copy()
-		Ct.Tr()
-		CtC := MulD(C, Ct)
-		V, d := CtC.EigSy()
-		ixMin := d.MinIx()
-		c.Normal = V.Col(ixMin)
-		fmt.Println("shares", shares)
-		fmt.Println("mean", mean)
-		fmt.Println("V", V)
-		fmt.Println("pA,pB", pA, pB)
-		fmt.Println("shares", alphaA, alphaB)
-		fmt.Println("points", pointsA, pointsB)
-		fmt.Println("grad", gradA)
-		fmt.Println("posA", A.Pos)
-		fmt.Println("posB", B.Pos)
-		fmt.Println("dist", c.Dist)
+		c.PointsA.AddCol(pA)
+		c.PointsB.AddCol(pB)
+		Y.AddCol(y)
 	}
+
+	c.Dist = v.Norm2Sq()
+	c.Normal = v.Normalize(v)
 	return c
+}
+
+func MinPoly(Y *MatD) VecD {
+	_, n := Y.Size()
+	if n == 1 {
+		return Y.Col(0).Copy()
+	}
+	if n == 2 {
+		l := ZeroVec(2)
+		d := Y.Col(0).Dot(Y.Col(1))
+		l[0] = Y.Col(0).Norm2Sq() - d
+		l[1] = Y.Col(1).Norm2Sq() - d
+		l.Mul(1/l.Norm1(), l)
+
+		if l[0] <= 0 {
+			Y.SetCol(0, nil)
+			return Y.Col(0).Copy()
+		} else if l[1] <= 0 {
+			Y.SetCol(1, nil)
+			return Y.Col(0).Copy()
+		} else {
+			return Y.ApplyTo(l)
+		}
+	}
+	if n == 3 {
+		v, l := CheckTri(Y.Col(0), Y.Col(1), Y.Col(2))
+		ix := 0
+		for la := range l {
+			if la == 0 {
+				Y.SetCol(ix, nil)
+				ix--
+			}
+			ix++
+		}
+		return v
+	}
+	if n == 4 {
+		y0 := Y.Col(0)
+		y1 := Y.Col(1)
+		y2 := Y.Col(2)
+		y3 := Y.Col(3)
+
+		y30 := ZeroVec(m).Sub(y3, y0)
+		y31 := ZeroVec(m).Sub(y3, y1)
+		y32 := ZeroVec(m).Sub(y3, y2)
+
+		y01 := ZeroVec(m).Sub(y0, y1)
+		y02 := ZeroVec(m).Sub(y0, y2)
+
+		n0 := ZeroVec(m).Cross(y30, y31)
+		if y32.Dot(n0) > 0 {
+			n0.Neg(n0)
+		}
+
+		n1 := ZeroVec(m).Cross(y30, y32)
+		if y31.Dot(n1) > 0 {
+			n1.Neg(n1)
+		}
+
+		n2 := ZeroVec(m).Cross(y31, y32)
+		if y30.Dot(n2) > 0 {
+			n2.Neg(n2)
+		}
+
+		n3 := ZeroVec(m).Cross(y01, y02)
+		if y30.Dot(n2) <= 0 {
+			n3.Neg(n3)
+		}
+	}
+	return nil
 }
 
 func ProjectOnSimplex(v VecD) VecD {
@@ -176,9 +190,11 @@ func closestPoint(A, B *MatD, sA, sB VecD) (a, b VecD) {
 	nIter := 0
 	for {
 		d.Sub(b, a)
+		fmt.Println("matrix vector mult")
 
 		gA := A.ApplyToTr(d)
 		gB := B.ApplyToTr(d.Neg(d))
+		fmt.Println("after")
 
 		if terminationCheck(sA, gA) && terminationCheck(sB, gB) {
 			break
