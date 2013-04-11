@@ -4,105 +4,131 @@ import (
 	. "github.com/dane-unltd/linalg/matrix"
 )
 
-func CheckTri(y0, y1, y2 VecD) (v, lambda VecD) {
-	lambda = ZeroVec(3)
+func CheckLine(Y *DenseD, ixs []int) (s VecD, sup []int) {
+	a := ixs[1]
+	b := ixs[0]
+	m, _ := Y.Size()
 
-	m := len(y0)
+	yab := NewVecD(m).Sub(Y.ColView(b), Y.ColView(a))
+	ya0 := NewVecD(m).Neg(Y.ColView(a))
 
-	v = ZeroVec(m)
-	temp := ZeroVec(m)
+	if Dot(ya0, yab) > 0 {
+		sup = []int{a, b}
+		s = NewVecD(m).Cross(NewVecD(m).Cross(yab, ya0), yab)
+		return
+	}
+	sup = []int{a}
+	s = ya0
+	return
+}
 
-	y01 := ZeroVec(m)
-	y01.Sub(y0, y1)
-	y02 := ZeroVec(m)
-	y02.Sub(y0, y2)
-	y12 := ZeroVec(m)
-	y12.Sub(y1, y2)
+func CheckTri(Y *DenseD, ixs []int) (s VecD, sup []int) {
 
-	normal := ZeroVec(m)
-	normal.Cross(y01, y02)
+	a := ixs[2]
+	b := ixs[1]
+	c := ixs[0]
 
-	normal01 := ZeroVec(m)
-	normal01.Cross(y01, normal)
-	normal02 := ZeroVec(m)
-	normal02.Cross(normal, y02)
-	normal12 := ZeroVec(m)
-	normal12.Cross(y12, normal)
+	ya0 := NewVecD(3).Neg(Y.ColView(a))
+	yab := NewVecD(3).Add(Y.ColView(b), ya0)
+	yac := NewVecD(3).Add(Y.ColView(c), ya0)
 
+	normal := NewVecD(3).Cross(yab, yac)
+
+	edge := NewVecD(3).Cross(normal, yac)
+	if Dot(edge, ya0) > 0 {
+		if Dot(yac, ya0) > 0 {
+			sup = []int{a, c}
+			s = NewVecD(3).Cross(NewVecD(3).Cross(yac, ya0), yac)
+			return
+		} else {
+			goto abtest
+		}
+	} else {
+		edge.Cross(yab, normal)
+		if Dot(edge, ya0) > 0 {
+			goto abtest
+		} else {
+			if Dot(normal, ya0) > 0 {
+				sup = []int{a, b, c}
+				s = normal
+				return
+			}
+			sup = []int{a, c, b}
+			s = normal.Neg(normal)
+			return
+		}
+	}
+
+abtest:
+	if Dot(yab, ya0) > 0 {
+		sup = []int{a, b}
+		s = NewVecD(3).Cross(NewVecD(3).Cross(yab, ya0), yab)
+		return
+	}
+	sup = []int{a}
+	s = ya0
+
+	return
+}
+
+func checkTetra(Y *DenseD, ixs []int) (s VecD, sup []int) {
+	a := ixs[3]
+	b := ixs[2]
+	c := ixs[1]
+	d := ixs[0]
+
+	ya0 := NewVecD(3).Neg(Y.ColView(a))
+	yab := NewVecD(3).Add(Y.ColView(b), ya0)
+	yac := NewVecD(3).Add(Y.ColView(c), ya0)
+	yad := NewVecD(3).Add(Y.ColView(d), ya0)
+
+	face := NewVecD(3).Cross(yad, yac)
+
+	var sup1, sup2 []int
+	var s1 VecD
 	inside := true
-	d0d01 := y0.Dot(y01)
-	d1d01 := y1.Dot(y01)
-	if normal01.Dot(y0) <= 0 {
+
+	if Dot(face, ya0) > 0 {
 		inside = false
-		if d0d01 <= 0 {
-			if d1d01 >= 0 {
-				//edge 01
-				lambda[0] = -d0d01
-				lambda[1] = d1d01
-				lambda.Mul(1/lambda.Norm1(), lambda)
-				v.Mul(lambda[0], y0)
-				temp.Mul(lambda[1], y1)
-				v.Add(v, temp)
-				return
-			}
+		s, sup = CheckTri(Y, []int{d, c, a})
+		if len(sup) == 3 {
+			return
 		}
+		s1 = s
+		sup1 = sup
 	}
-	d0d02 := y0.Dot(y02)
-	d2d02 := y2.Dot(y02)
-	if normal02.Dot(y0) <= 0 {
+	face.Cross(yab, yad)
+	if Dot(face, ya0) > 0 {
 		inside = false
-		if d0d02 <= 0 {
-			if d2d02 >= 0 {
-				//edge 02
-				lambda[0] = -d0d02
-				lambda[2] = d2d02
-				lambda.Mul(1/lambda.Norm1(), lambda)
-				v.Mul(lambda[0], y0)
-				temp.Mul(lambda[2], y2)
-				v.Add(v, temp)
-				return
-			}
+		s, sup = CheckTri(Y, []int{b, d, a})
+		if len(sup) == 3 {
+			return
 		}
+		sup2 = sup
 	}
-	d1d12 := y1.Dot(y12)
-	d2d12 := y2.Dot(y12)
-	if normal12.Dot(y1) <= 0 {
+	face.Cross(yac, yab)
+	if Dot(face, ya0) > 0 {
 		inside = false
-		if d1d12 <= 0 {
-			if d2d12 >= 0 {
-				//edge 12
-				lambda[1] = -d1d12
-				lambda[2] = d2d12
-				lambda.Mul(1/lambda.Norm1(), lambda)
-				v.Mul(lambda[1], y1)
-				temp.Mul(lambda[2], y2)
-				v.Add(v, temp)
-				return
-			}
+		s, sup = CheckTri(Y, []int{c, b, a})
+		if len(sup) == 3 {
+			return
 		}
-	}
-	if inside {
-		//in triangle
-		lambda = OnesVec(m)
-		normal.Normalize(normal)
-		v.Mul(y0.Dot(normal), normal)
+		if len(sup) == 1 && len(sup1) == 1 {
+			return
+		}
+		if sup[1] == sup2[1] || sup[1] == sup1[1] {
+			return
+		}
+		sup = sup1
+		s = s1
 		return
 	}
 
-	if (d0d01 <= 0) && (d0d02 <= 0) {
-		lambda[0] = 1
-		v = y0.Copy()
+	if inside {
+		sup = []int{b, c, d, a}
+		s = nil
 		return
 	}
-	if (d1d01 >= 0) && (d1d12 <= 0) {
-		lambda[1] = 1
-		v = y1.Copy()
-		return
-	}
-	if (d2d02 >= 0) && (d2d12 >= 0) {
-		lambda[2] = 1
-		v = y2.Copy()
-		return
-	}
+
 	return
 }

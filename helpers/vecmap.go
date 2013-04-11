@@ -26,7 +26,7 @@ func (v VecMap) Mutate(id core.EntId, value interface{}) {
 func (v VecMap) Clone() core.State {
 	vNew := NewVecMap()
 	for id := range v {
-		vNew[id] = v[id].Copy()
+		vNew[id] = v[id].Copy().(matrix.VecD)
 	}
 	return vNew
 }
