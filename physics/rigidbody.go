@@ -1,23 +1,17 @@
 package physics
 
 import (
-	"fmt"
+	"github.com/dane-unltd/engine/core"
 	. "github.com/dane-unltd/linalg/matrix"
 	"sort"
 )
 
-type RigidBody struct {
-	Pos, Vel VecD
-	Rot      *DenseD
-	MassInv  float64
-
-	LinOpt func(c VecD) VecD
-}
+type SupportFunc func(VecD) VecD
 
 type Contact struct {
 	Normal           VecD
 	Dist             float64
-	A, B             *RigidBody
+	A, B             core.EntId
 	PointsA, PointsB *DenseD
 	Sup              []int
 }
@@ -30,21 +24,27 @@ func NewContact() *Contact {
 	return &c
 }
 
-func LinOptPoly(A *DenseD) func(VecD) VecD {
-	_, n := A.Size()
-	w := NewVecD(n)
-	A.Tr()
-	return func(c VecD) VecD {
-		w.Mul(A, c)
-		maxIx := w.Idmax()
-		return A.ColView(maxIx).Copy().(VecD)
-	}
+func (c *Contact) Copy() interface{} {
+	cn := Contact{}
+	cn.Normal = c.Normal.Copy().(VecD)
+	cn.Dist = c.Dist
+	cn.A, cn.B = c.A, c.B
+	cn.PointsA = c.PointsA.Copy().(*DenseD)
+	cn.PointsB = c.PointsB.Copy().(*DenseD)
+	cn.Sup = make([]int, len(c.Sup))
+	copy(cn.Sup, c.Sup)
+	return &cn
 }
 
-func (c *Contact) Update() *Contact {
+func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
+	supFunA, supFunB SupportFunc) *Contact {
 	s := NewVecD(3)
 	sNeg := NewVecD(3)
-	s.Sub(c.B.Pos, c.A.Pos)
+	if c.Normal == nil {
+		s.Sub(posB, posA)
+	} else {
+		s = c.Normal
+	}
 	sNeg.Neg(s)
 
 	Y := NewDenseD(3, 4)
@@ -58,11 +58,11 @@ func (c *Contact) Update() *Contact {
 	}
 
 	for _, sp := range c.Sup {
-		pA.Mul(c.A.Rot, c.PointsA.ColView(sp))
-		pB.Mul(c.B.Rot, c.PointsB.ColView(sp))
-		y.Add(pA, c.A.Pos)
+		pA.Mul(rotA, c.PointsA.ColView(sp))
+		pB.Mul(rotB, c.PointsB.ColView(sp))
+		y.Add(pA, posA)
 		y.Sub(y, pB)
-		y.Sub(y, c.B.Pos)
+		y.Sub(y, posB)
 		Y.SetCol(sp, y)
 	}
 
@@ -70,18 +70,22 @@ func (c *Contact) Update() *Contact {
 	pArot := NewVecD(3)
 	pBrot := NewVecD(3)
 	for iter := 0; ; iter++ {
-		sTr.Mul(c.A.Rot, s)
-		sNegTr.Mul(c.B.Rot, sNeg)
+		sTr.Mul(rotA, s)
+		sNegTr.Mul(rotB, sNeg)
 
-		pA = c.A.LinOpt(sTr)
-		pB = c.B.LinOpt(sNegTr)
+		pA = supFunA(sTr)
+		pB = supFunB(sNegTr)
 
-		pArot.Mul(c.A.Rot, pA)
-		pBrot.Mul(c.B.Rot, pB)
+		pArot.Mul(rotA, pA)
+		pBrot.Mul(rotB, pB)
 
-		y.Add(pArot, c.A.Pos)
+		y.Add(pArot, posA)
 		y.Sub(y, pBrot)
-		y.Sub(y, c.B.Pos)
+		y.Sub(y, posB)
+
+		if iter > 0 && Ddot(s, NewVecD(3).Sub(y, Y.ColView(c.Sup[0]))) < 1e-3 {
+			break
+		}
 
 		supCheck := []bool{true, true, true, true}
 		for _, sv := range c.Sup {
@@ -97,29 +101,23 @@ func (c *Contact) Update() *Contact {
 		c.PointsA.SetCol(i, pA)
 		c.PointsB.SetCol(i, pB)
 		Y.SetCol(i, y)
-		fmt.Println("sup", c.Sup, i)
 		c.Sup = append(c.Sup, i)
 
-		fmt.Println("sup", c.Sup)
-		fmt.Println("Y", Y)
-
-		if iter > 0 && Dot(s, NewVecD(3).Sub(y, Y.ColView(c.Sup[0]))) < 1e-3 {
-			break
-		}
-
 		s, c.Sup = MinPoly(Y, c.Sup)
-		sNeg.Neg(s)
 		if len(c.Sup) == 4 {
 			break
 		}
+		sNeg.Neg(s)
 	}
 
 	if s == nil {
 		c.Dist = 0
+		s = NewVecD(3).Sub(posB, posA)
+		c.Normal = s.Normalize(s)
 		return c
 	}
 	c.Normal = s.Normalize(s)
-	c.Dist = -Dot(s, y)
+	c.Dist = -Ddot(s, y)
 	return c
 }
 
@@ -210,7 +208,7 @@ func closestPoint(A, B *DenseD, sA, sB VecD) (a, b VecD) {
 			tempA.Sub(sAhat, sA)
 			tempB.Sub(sBhat, sB)
 
-			if fCurr > f0-0.5*(gA.Dot(tempA)+gB.Dot(tempB)) {
+			if fCurr > f0-0.5*(gA.Ddot(tempA)+gB.Ddot(tempB)) {
 				s = s * 0.5
 				fPrev = fCurr
 			} else {
