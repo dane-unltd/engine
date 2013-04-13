@@ -2,7 +2,7 @@ package physics
 
 import . "github.com/dane-unltd/linalg/matrix"
 
-func LinOptSphere(r float64) func(VecD) VecD {
+func LinOptSphere(r float64) SupportFunc {
 	w := NewVecD(3)
 	return func(c VecD) VecD {
 		w.Normalize(c)
@@ -11,7 +11,7 @@ func LinOptSphere(r float64) func(VecD) VecD {
 	}
 }
 
-func LinOptPoly(A *DenseD) func(VecD) VecD {
+func LinOptPoly(A *DenseD) SupportFunc {
 	_, n := A.Size()
 	w := NewVecD(n)
 	A.T()

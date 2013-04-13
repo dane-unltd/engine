@@ -8,6 +8,14 @@ import (
 
 type SupportFunc func(VecD) VecD
 
+func (s SupportFunc) Copy() interface{} {
+	return s
+}
+
+func (s SupportFunc) Equals(interface{}) bool {
+	return true
+}
+
 type Contact struct {
 	Normal           VecD
 	Dist             float64
@@ -53,6 +61,10 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 	pA := NewVecD(3)
 	pB := NewVecD(3)
 
+	sTr, sNegTr := NewVecD(3), NewVecD(3)
+	pArot := NewVecD(3)
+	pBrot := NewVecD(3)
+
 	if len(c.Sup) == 4 {
 		c.Sup = c.Sup[1:]
 	}
@@ -65,10 +77,30 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 		y.Sub(y, posB)
 		Y.SetCol(sp, y)
 	}
+	if len(c.Sup) > 0 {
+		s, c.Sup = MinPoly(Y, c.Sup)
+	} else {
+		sTr.Mul(rotA, s)
+		sNegTr.Mul(rotB, sNeg)
 
-	sTr, sNegTr := NewVecD(3), NewVecD(3)
-	pArot := NewVecD(3)
-	pBrot := NewVecD(3)
+		pA = supFunA(sTr)
+		pB = supFunB(sNegTr)
+
+		pArot.Mul(rotA, pA)
+		pBrot.Mul(rotB, pB)
+
+		y.Add(pArot, posA)
+		y.Sub(y, pBrot)
+		y.Sub(y, posB)
+
+		c.PointsA.SetCol(0, pA)
+		c.PointsB.SetCol(0, pB)
+		Y.SetCol(0, y)
+		c.Sup = append(c.Sup, 0)
+		s.Neg(y)
+		sNeg.Neg(s)
+	}
+
 	for iter := 0; ; iter++ {
 		sTr.Mul(rotA, s)
 		sNegTr.Mul(rotB, sNeg)
@@ -83,7 +115,7 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 		y.Sub(y, pBrot)
 		y.Sub(y, posB)
 
-		if iter > 0 && Ddot(s, NewVecD(3).Sub(y, Y.ColView(c.Sup[0]))) < 1e-3 {
+		if Ddot(s, NewVecD(3).Sub(y, Y.ColView(c.Sup[0]))) < 1e-3 {
 			break
 		}
 
