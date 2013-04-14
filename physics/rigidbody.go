@@ -1,8 +1,10 @@
 package physics
 
 import (
+	"fmt"
 	"github.com/dane-unltd/engine/core"
 	. "github.com/dane-unltd/linalg/matrix"
+	"math"
 	"sort"
 )
 
@@ -76,9 +78,21 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 		y.Sub(y, pB)
 		y.Sub(y, posB)
 		Y.SetCol(sp, y)
+		if math.IsNaN(y[0]) {
+			fmt.Println("****************")
+			fmt.Println(s, y, Y)
+			fmt.Println(pA, pB, rotA, rotB)
+			fmt.Println(c.PointsA, c.PointsB)
+			panic("Nan before iter after Min")
+		}
 	}
 	if len(c.Sup) > 0 {
 		s, c.Sup = MinPoly(Y, c.Sup)
+		if math.IsNaN(s[0]) {
+			fmt.Println(c.Sup, s, y, Y)
+			fmt.Println(pA, pB, rotA, rotB)
+			panic("Nan before iter after Min")
+		}
 	} else {
 		sTr.Mul(rotA, s)
 		sNegTr.Mul(rotB, sNeg)
@@ -100,8 +114,14 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 		s.Neg(y)
 		sNeg.Neg(s)
 	}
+	if math.IsNaN(y[0]) {
+		fmt.Println(s, y, Y)
+		fmt.Println(pA, pB, rotA, rotB)
+		panic("Nan before iter")
+	}
 
-	for iter := 0; ; iter++ {
+	iter := 0
+	for ; iter < 100; iter++ {
 		sTr.Mul(rotA, s)
 		sNegTr.Mul(rotB, sNeg)
 
@@ -114,6 +134,13 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 		y.Add(pArot, posA)
 		y.Sub(y, pBrot)
 		y.Sub(y, posB)
+		if math.IsNaN(y[0]) {
+			fmt.Println("****************")
+			fmt.Println(s, y, Y)
+			fmt.Println(pA, pB, rotA, rotB)
+			fmt.Println(c.PointsA, c.PointsB)
+			panic("Nan in y")
+		}
 
 		if Ddot(s, NewVecD(3).Sub(y, Y.ColView(c.Sup[0]))) < 1e-3 {
 			break
@@ -133,13 +160,31 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 		c.PointsA.SetCol(i, pA)
 		c.PointsB.SetCol(i, pB)
 		Y.SetCol(i, y)
+		if math.IsNaN(y[0]) {
+			fmt.Println(s, y, Y)
+			panic("NaN after y assignement")
+		}
 		c.Sup = append(c.Sup, i)
 
 		s, c.Sup = MinPoly(Y, c.Sup)
+		if len(s) > 0 {
+			if math.IsNaN(s[0]) {
+				fmt.Println(s, y, Y)
+				panic("NaN after MinPoly")
+			}
+		}
 		if len(c.Sup) == 4 {
 			break
 		}
 		sNeg.Neg(s)
+	}
+
+	if iter == 99 {
+		fmt.Println("did not converge")
+		s = NewVecD(3).Sub(posB, posA)
+		c.Dist = s.Nrm2()
+		c.Normal = s.Normalize(s)
+		return c
 	}
 
 	if s == nil {
@@ -148,8 +193,19 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 		c.Normal = s.Normalize(s)
 		return c
 	}
+	dist := math.Abs(Ddot(s, y))
+	if dist < 1e-3 {
+		c.Dist = 0
+		s = NewVecD(3).Sub(posB, posA)
+		c.Normal = s.Normalize(s)
+		return c
+	}
 	c.Normal = s.Normalize(s)
 	c.Dist = -Ddot(s, y)
+	if math.IsNaN(c.Dist) {
+		fmt.Println(c.Sup, s, y, Y)
+		panic("NaN in rigidbody")
+	}
 	return c
 }
 

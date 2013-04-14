@@ -22,7 +22,7 @@ type Sim struct {
 	states     *InfBuf
 	emptySt    StateMap
 	mutBufs    map[string]*MutBuf
-	transFuncs [10][]TransFunc
+	transFuncs [50][]TransFunc
 	idGen      *IdGen
 	time       Tick
 	mut        MutFuncs

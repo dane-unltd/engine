@@ -8,7 +8,7 @@ type Mutation struct {
 	Value interface{}
 }
 
-const bufSize uint64 = 1 << 4
+const bufSize uint64 = 1 << 10
 const indexMaskMut uint64 = bufSize - 1
 
 type MutBuf struct {
