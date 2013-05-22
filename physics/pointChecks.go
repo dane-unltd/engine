@@ -4,17 +4,17 @@ import (
 	. "github.com/dane-unltd/linalg/matrix"
 )
 
-func CheckLine(Y *DenseD, ixs []int) (s VecD, sup []int) {
+func CheckLine(Y *Dense, ixs []int) (s Vec, sup []int) {
 	a := ixs[1]
 	b := ixs[0]
 	m, _ := Y.Size()
 
-	yab := NewVecD(m).Sub(Y.ColView(b), Y.ColView(a))
-	ya0 := NewVecD(m).Neg(Y.ColView(a))
+	yab := NewVec(m).Sub(Y.ColView(b), Y.ColView(a))
+	ya0 := NewVec(m).Neg(Y.ColView(a))
 
 	if Ddot(ya0, yab) > 0 {
 		sup = []int{a, b}
-		s = NewVecD(m).Cross(NewVecD(m).Cross(yab, ya0), yab)
+		s = NewVec(m).Cross(NewVec(m).Cross(yab, ya0), yab)
 		return
 	}
 	sup = []int{a}
@@ -22,23 +22,23 @@ func CheckLine(Y *DenseD, ixs []int) (s VecD, sup []int) {
 	return
 }
 
-func CheckTri(Y *DenseD, ixs []int) (s VecD, sup []int) {
+func CheckTri(Y *Dense, ixs []int) (s Vec, sup []int) {
 
 	a := ixs[2]
 	b := ixs[1]
 	c := ixs[0]
 
-	ya0 := NewVecD(3).Neg(Y.ColView(a))
-	yab := NewVecD(3).Add(Y.ColView(b), ya0)
-	yac := NewVecD(3).Add(Y.ColView(c), ya0)
+	ya0 := NewVec(3).Neg(Y.ColView(a))
+	yab := NewVec(3).Add(Y.ColView(b), ya0)
+	yac := NewVec(3).Add(Y.ColView(c), ya0)
 
-	normal := NewVecD(3).Cross(yab, yac)
+	normal := NewVec(3).Cross(yab, yac)
 
-	edge := NewVecD(3).Cross(normal, yac)
+	edge := NewVec(3).Cross(normal, yac)
 	if Ddot(edge, ya0) > 0 {
 		if Ddot(yac, ya0) > 0 {
 			sup = []int{a, c}
-			s = NewVecD(3).Cross(NewVecD(3).Cross(yac, ya0), yac)
+			s = NewVec(3).Cross(NewVec(3).Cross(yac, ya0), yac)
 			return
 		} else {
 			goto abtest
@@ -62,7 +62,7 @@ func CheckTri(Y *DenseD, ixs []int) (s VecD, sup []int) {
 abtest:
 	if Ddot(yab, ya0) > 0 {
 		sup = []int{a, b}
-		s = NewVecD(3).Cross(NewVecD(3).Cross(yab, ya0), yab)
+		s = NewVec(3).Cross(NewVec(3).Cross(yab, ya0), yab)
 		return
 	}
 	sup = []int{a}
@@ -71,21 +71,21 @@ abtest:
 	return
 }
 
-func checkTetra(Y *DenseD, ixs []int) (s VecD, sup []int) {
+func checkTetra(Y *Dense, ixs []int) (s Vec, sup []int) {
 	a := ixs[3]
 	b := ixs[2]
 	c := ixs[1]
 	d := ixs[0]
 
-	ya0 := NewVecD(3).Neg(Y.ColView(a))
-	yab := NewVecD(3).Add(Y.ColView(b), ya0)
-	yac := NewVecD(3).Add(Y.ColView(c), ya0)
-	yad := NewVecD(3).Add(Y.ColView(d), ya0)
+	ya0 := NewVec(3).Neg(Y.ColView(a))
+	yab := NewVec(3).Add(Y.ColView(b), ya0)
+	yac := NewVec(3).Add(Y.ColView(c), ya0)
+	yad := NewVec(3).Add(Y.ColView(d), ya0)
 
-	face := NewVecD(3).Cross(yad, yac)
+	face := NewVec(3).Cross(yad, yac)
 
 	var sup1, sup2 []int
-	var s1 VecD
+	var s1 Vec
 	inside := true
 
 	if Ddot(face, ya0) > 0 {

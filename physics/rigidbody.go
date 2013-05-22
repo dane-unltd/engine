@@ -2,13 +2,12 @@ package physics
 
 import (
 	"fmt"
-	"github.com/dane-unltd/engine/core"
 	. "github.com/dane-unltd/linalg/matrix"
 	"math"
 	"sort"
 )
 
-type SupportFunc func(VecD) VecD
+type SupportFunc func(Vec) Vec
 
 func (s SupportFunc) Copy() interface{} {
 	return s
@@ -19,9 +18,8 @@ func (s SupportFunc) Equals(interface{}) bool {
 }
 
 type Contact struct {
-	Normal           VecD
+	Normal           Vec
 	Dist             float64
-	A, B             core.EntId
 	PointsA, PointsB *DenseD
 	Sup              []int
 }
@@ -36,9 +34,8 @@ func NewContact() *Contact {
 
 func (c *Contact) Copy() interface{} {
 	cn := Contact{}
-	cn.Normal = c.Normal.Copy().(VecD)
+	cn.Normal = c.Normal.Copy().(Vec)
 	cn.Dist = c.Dist
-	cn.A, cn.B = c.A, c.B
 	cn.PointsA = c.PointsA.Copy().(*DenseD)
 	cn.PointsB = c.PointsB.Copy().(*DenseD)
 	cn.Sup = make([]int, len(c.Sup))
@@ -46,10 +43,10 @@ func (c *Contact) Copy() interface{} {
 	return &cn
 }
 
-func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
+func (c *Contact) Update(posA, posB Vec, rotA, rotB *DenseD,
 	supFunA, supFunB SupportFunc) *Contact {
-	s := NewVecD(3)
-	sNeg := NewVecD(3)
+	s := NewVec(3)
+	sNeg := NewVec(3)
 	if c.Normal == nil {
 		s.Sub(posB, posA)
 	} else {
@@ -58,14 +55,14 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 	sNeg.Neg(s)
 
 	Y := NewDenseD(3, 4)
-	y := NewVecD(3)
+	y := NewVec(3)
 
-	pA := NewVecD(3)
-	pB := NewVecD(3)
+	pA := NewVec(3)
+	pB := NewVec(3)
 
-	sTr, sNegTr := NewVecD(3), NewVecD(3)
-	pArot := NewVecD(3)
-	pBrot := NewVecD(3)
+	sTr, sNegTr := NewVec(3), NewVec(3)
+	pArot := NewVec(3)
+	pBrot := NewVec(3)
 
 	if len(c.Sup) == 4 {
 		c.Sup = c.Sup[1:]
@@ -142,7 +139,7 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 			panic("Nan in y")
 		}
 
-		if Ddot(s, NewVecD(3).Sub(y, Y.ColView(c.Sup[0]))) < 1e-3 {
+		if Ddot(s, NewVec(3).Sub(y, Y.ColView(c.Sup[0]))) < 1e-3 {
 			break
 		}
 
@@ -181,7 +178,7 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 
 	if iter == 99 {
 		fmt.Println("did not converge")
-		s = NewVecD(3).Sub(posB, posA)
+		s = NewVec(3).Sub(posB, posA)
 		c.Dist = s.Nrm2()
 		c.Normal = s.Normalize(s)
 		return c
@@ -189,14 +186,14 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 
 	if s == nil {
 		c.Dist = 0
-		s = NewVecD(3).Sub(posB, posA)
+		s = NewVec(3).Sub(posB, posA)
 		c.Normal = s.Normalize(s)
 		return c
 	}
 	dist := math.Abs(Ddot(s, y))
 	if dist < 1e-3 {
 		c.Dist = 0
-		s = NewVecD(3).Sub(posB, posA)
+		s = NewVec(3).Sub(posB, posA)
 		c.Normal = s.Normalize(s)
 		return c
 	}
@@ -209,10 +206,10 @@ func (c *Contact) Update(posA, posB VecD, rotA, rotB *DenseD,
 	return c
 }
 
-func MinPoly(Y *DenseD, sup []int) (s VecD, supRes []int) {
+func MinPoly(Y *DenseD, sup []int) (s Vec, supRes []int) {
 	n := len(sup)
 	if n == 1 {
-		s = NewVecD(3).Neg(Y.ColView(sup[0]))
+		s = NewVec(3).Neg(Y.ColView(sup[0]))
 		supRes = sup
 		return
 	}
@@ -231,9 +228,9 @@ func MinPoly(Y *DenseD, sup []int) (s VecD, supRes []int) {
 	panic("too many points")
 }
 
-func ProjectOnSimplex(v VecD) VecD {
+func ProjectOnSimplex(v Vec) Vec {
 	n := len(v)
-	vSort := v.Copy().(VecD)
+	vSort := v.Copy().(Vec)
 	sort.Float64s([]float64(vSort))
 
 	var wl float64
@@ -254,16 +251,16 @@ func ProjectOnSimplex(v VecD) VecD {
 }
 
 /*
-func closestPoint(A, B *DenseD, sA, sB VecD) (a, b VecD) {
+func closestPoint(A, B *DenseD, sA, sB Vec) (a, b Vec) {
 	s := 1.0
 	n, _ := A.Size()
 
-	d := NewVecD(n)
-	tempA := NewVecD(len(sA))
-	tempB := NewVecD(len(sB))
+	d := NewVec(n)
+	tempA := NewVec(len(sA))
+	tempB := NewVec(len(sB))
 
-	sAhat := NewVecD(len(sA))
-	sBhat := NewVecD(len(sB))
+	sAhat := NewVec(len(sA))
+	sBhat := NewVec(len(sB))
 
 	ProjectOnSimplex(sA)
 	ProjectOnSimplex(sB)
@@ -318,12 +315,12 @@ func closestPoint(A, B *DenseD, sA, sB VecD) (a, b VecD) {
 
 
 
-func terminationCheck(s, g VecD) bool {
+func terminationCheck(s, g Vec) bool {
 	if g.Nrm2Sq() < 1e-6 {
 		return true
 	}
-	q0 := NewVecD(len(s))
-	q := NewVecD(len(s))
+	q0 := NewVec(len(s))
+	q := NewVec(len(s))
 	for i := range q0 {
 		q0[i] = 1
 	}
@@ -369,7 +366,7 @@ func terminationCheck(s, g VecD) bool {
 	}
 	if terminate {
 		gproj := Q.ApplyTo(R.ApplyTo(coeffs))
-		diff := NewVecD(m).Sub(gproj, g).Nrm2Sq()
+		diff := NewVec(m).Sub(gproj, g).Nrm2Sq()
 		if diff > 1e-3 {
 			terminate = false
 		}
