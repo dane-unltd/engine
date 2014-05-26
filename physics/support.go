@@ -1,3 +1,5 @@
+//+build ignore
+
 package physics
 
 import . "github.com/dane-unltd/linalg/matrix"

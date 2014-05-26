@@ -13,6 +13,7 @@ func New(idInc func()) *IdGen {
 	g.idOut = make(chan uint32)
 	g.idIn = make(chan uint32, 8)
 	g.maxIdInc = idInc
+	go g.run()
 	return &g
 }
 
@@ -24,7 +25,7 @@ func (g *IdGen) Free(id uint32) {
 	g.idIn <- id
 }
 
-func (g *IdGen) Run() {
+func (g *IdGen) run() {
 	g.maxIdInc()
 	g.maxIdInc()
 	currId := g.maxId + 1
