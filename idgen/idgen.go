@@ -18,6 +18,7 @@ func New(idInc func(uint32)) *IdGen {
 	g := IdGen{}
 	g.idOut = make(chan uint32)
 	g.idIn = make(chan uint32, 8)
+	g.idUse = make(chan useReq)
 	g.maxIdInc = idInc
 	go g.run()
 	return &g
@@ -66,9 +67,15 @@ func (g *IdGen) run() {
 				for i := g.maxId + 1; i < req.id; i++ {
 					g.freeIds = append(g.freeIds, i)
 				}
-				currId = g.freeIds[len(g.freeIds)-1]
 				g.maxId = req.id
 				g.maxIdInc(g.maxId)
+
+				if len(g.freeIds) > 0 {
+					currId = g.freeIds[len(g.freeIds)-1]
+				} else {
+					currId = g.maxId + 1
+				}
+
 				req.ret <- true
 			} else {
 				i := 0
