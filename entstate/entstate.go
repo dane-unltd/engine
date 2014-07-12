@@ -43,13 +43,13 @@ func Delete(id EntId) {
 	idGen.Free(uint32(id))
 }
 
-func incMaxEnts() {
+func incMaxEnts(n int) {
 	for i := range stateComps {
-		stateComps[i].Append()
+		stateComps[i].Append(n)
 	}
 	for i := range oldStateComps {
 		if oldStateComps[i] != nil {
-			oldStateComps[i].Append()
+			oldStateComps[i].Append(n)
 		}
 	}
 }
