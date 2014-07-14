@@ -11,6 +11,11 @@ func (res *Vec) Add(a, b *Vec) *Vec {
 	return res
 }
 
+func (res *Vec) Copy(a *Vec) *Vec {
+	*res = *a
+	return res
+}
+
 func (res *Vec) Sub(a, b *Vec) *Vec {
 	(*res)[0] = (*a)[0] - (*b)[0]
 	(*res)[1] = (*a)[1] - (*b)[1]
