@@ -51,31 +51,11 @@ func Deserialize(buf io.Reader) {
 		}
 
 		bitMask := bitmask.New(len(networkedComps))
-		n, err := buf.Read(bitMask)
+		_, err = buf.Read(bitMask)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	bufTemp := &bytes.Buffer{}
-	for id, act := range active {
-		if !act {
-			continue
-		}
-		binary.Write(buf, binary.LittleEndian, EntId(id))
-		bufTemp.Reset()
-
-		bitMask := bitmask.New(len(networkedComps))
-		for i, compId := range networkedComps {
-			v := stateComps[compId].Val(EntId(id))
-			if serAll || !oldStateComps[compId].Equal(v, EntId(id)) {
-				bitMask.Set(i)
-				binary.Write(bufTemp, binary.LittleEndian, v)
-			}
-
-		}
-		buf.Write(bitMask)
-		buf.Write(bufTemp.Bytes())
-	}
-
+	//TODO
 }
