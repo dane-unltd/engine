@@ -33,6 +33,8 @@ func (st Float64State) Equal(v interface{}, id EntId) bool {
 	return f64 == st[id]
 }
 
-func (st *Float64State) Append() {
-	(*st) = append((*st), 0)
+func (st *Float64State) Append(n uint32) {
+	for len(*st) < int(n) {
+		(*st) = append((*st), 0)
+	}
 }

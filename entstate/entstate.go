@@ -11,7 +11,7 @@ type StateComp interface {
 	Copyer
 	Clone() interface{}
 	Zero(id EntId)
-	Append()
+	Append(n uint32)
 	Val(id EntId) interface{}
 	Equal(v interface{}, id EntId) bool
 }
@@ -28,10 +28,6 @@ var stateComps = make([]StateComp, 0)
 var networkedComps = make([]CompId, 0)
 var oldStateComps = make([]StateComp, 0)
 
-func init() {
-	go idGen.Run()
-}
-
 func New() EntId {
 	return EntId(idGen.Next())
 }
@@ -43,7 +39,7 @@ func Delete(id EntId) {
 	idGen.Free(uint32(id))
 }
 
-func incMaxEnts(n int) {
+func incMaxEnts(n uint32) {
 	for i := range stateComps {
 		stateComps[i].Append(n)
 	}

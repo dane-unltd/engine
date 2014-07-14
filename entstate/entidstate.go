@@ -33,6 +33,8 @@ func (st EntIdState) Equal(v interface{}, id EntId) bool {
 	return entId == st[id]
 }
 
-func (st *EntIdState) Append() {
-	(*st) = append((*st), 0)
+func (st *EntIdState) Append(n uint32) {
+	for len(*st) < int(n) {
+		(*st) = append((*st), 0)
+	}
 }
