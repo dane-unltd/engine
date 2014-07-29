@@ -34,7 +34,7 @@ func (st BoolState) Equal(v interface{}, id EntId) bool {
 }
 
 func (st *BoolState) Append(n uint32) {
-	for len(*st) < int(n) {
+	for len(*st) <= int(n) {
 		(*st) = append((*st), false)
 	}
 }

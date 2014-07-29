@@ -34,7 +34,7 @@ func (st Float64State) Equal(v interface{}, id EntId) bool {
 }
 
 func (st *Float64State) Append(n uint32) {
-	for len(*st) < int(n) {
+	for len(*st) <= int(n) {
 		(*st) = append((*st), 0)
 	}
 }

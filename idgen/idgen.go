@@ -43,7 +43,7 @@ func (g *IdGen) Use(id uint32) bool {
 
 func (g *IdGen) run() {
 	currId := g.maxId + 1
-	g.maxIdInc(g.maxId)
+	g.maxIdInc(g.maxId + 1)
 	for {
 		select {
 		case id := <-g.idIn:
@@ -52,7 +52,7 @@ func (g *IdGen) run() {
 		case g.idOut <- currId:
 			if currId > g.maxId {
 				g.maxId = currId
-				g.maxIdInc(g.maxId)
+				g.maxIdInc(g.maxId + 1)
 				currId++
 			} else {
 				g.freeIds = g.freeIds[:len(g.freeIds)-1]
@@ -60,6 +60,7 @@ func (g *IdGen) run() {
 					currId = g.freeIds[len(g.freeIds)-1]
 				} else {
 					currId = g.maxId + 1
+					g.maxIdInc(g.maxId + 1)
 				}
 			}
 		case req := <-g.idUse:
@@ -74,6 +75,7 @@ func (g *IdGen) run() {
 					currId = g.freeIds[len(g.freeIds)-1]
 				} else {
 					currId = g.maxId + 1
+					g.maxIdInc(g.maxId + 1)
 				}
 
 				req.ret <- true

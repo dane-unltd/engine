@@ -36,7 +36,7 @@ func (st VecState) Equal(v interface{}, id EntId) bool {
 }
 
 func (st *VecState) Append(n uint32) {
-	for len(*st) < int(n) {
+	for len(*st) <= int(n) {
 		(*st) = append((*st), math3.Vec{})
 	}
 }
